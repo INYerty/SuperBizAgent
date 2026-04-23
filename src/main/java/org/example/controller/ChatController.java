@@ -185,7 +185,7 @@ public class ChatController {
                 // 创建 ReactAgent
                 ReactAgent agent = chatService.createReactAgent(chatModel, systemPrompt);
                 
-                // 用于累积完整答案
+                // 用于累积完整答案   这里用于将打字机效果的一个字一个字累积起来变成一个完整的Agent回答段落 用于存储到会话历史中。
                 StringBuilder fullAnswerBuilder = new StringBuilder();
                 
                 // 使用 agent.stream() 进行流式对话
@@ -201,12 +201,15 @@ public class ChatController {
                                 // 处理模型推理的流式输出
                                 if (type == OutputType.AGENT_MODEL_STREAMING) {
                                     // 流式增量内容，逐步显示
+                                    //如果检测到是AI对话 那么将输出的内容 强制转换成String类型表示大模型的输出。
                                     String chunk = streamingOutput.message().getText();
                                     if (chunk != null && !chunk.isEmpty()) {
                                         fullAnswerBuilder.append(chunk);
                                         
                                         // 实时发送到前端
                                         emitter.send(SseEmitter.event()
+                                                /*event: message                 <-- 因为你写了 .name("message") 才会多出这一行
+                                                data: {"type":"content","data":"你好"}*/
                                                 .name("message")
                                                 .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
                                         
@@ -240,6 +243,7 @@ public class ChatController {
                         }
                         emitter.completeWithError(error);
                     },
+                        //TODO 再理解一下
                     () -> {
                         // 完成处理
                         try {
@@ -308,7 +312,11 @@ public class ChatController {
 
                 ToolCallback[] toolCallbacks = tools.getToolCallbacks();
 
-                emitter.send(SseEmitter.event().name("message").data(SseMessage.content("正在读取告警并拆解任务...\n")));
+                emitter.send(
+                        SseEmitter.event()
+                        .name("message")
+                        .data(SseMessage.content("正在读取告警并拆解任务...\n"))
+                );
                 
                 // 调用 AiOpsService 执行分析流程
                 Optional<OverAllState> overAllStateOptional = aiOpsService.executeAiOpsAnalysis(chatModel, toolCallbacks);
@@ -323,7 +331,7 @@ public class ChatController {
                 OverAllState state = overAllStateOptional.get();
                 logger.info("AI Ops 编排完成，开始提取最终报告...");
 
-                // 提取最终报告
+                // 提取最终报告  planner报告
                 Optional<String> finalReportOptional = aiOpsService.extractFinalReport(state);
 
                 // 输出最终报告
@@ -338,9 +346,15 @@ public class ChatController {
                     // 发送完整的告警分析报告
                     emitter.send(SseEmitter.event().name("message")
                             .data(SseMessage.content("📋 **告警分析报告**\n\n"), MediaType.APPLICATION_JSON));
-                    
+
+                    //这里采取的是手动模拟SSE的输出 不是真正的SSE输出 , 那为什么不直接模型输出的时候将结果交给SSE传递给前端呢
+                    //我们可以看到之前做react(return supervisorAgent.invoke(taskPrompt);)的代码中 返回值的类型是OverAllState
+                    //我们无法知道大模型react是什么时候停下来的 只能知道react之后的最终结果 所以如果使用了SSE 那么就会将LLM的
+                    // 思考过程全盘托出 这并不是我们想要的。
+                    //因此 这里采用了分块输出的策略 每次一次性输出50个chunk 直至输出完毕。也相当于是SSE的效果。
                     int chunkSize = 50;
                     for (int i = 0; i < finalReportText.length(); i += chunkSize) {
+                        //防止发生越界
                         int end = Math.min(i + chunkSize, finalReportText.length());
                         String chunk = finalReportText.substring(i, end);
                         
@@ -378,6 +392,7 @@ public class ChatController {
         return emitter;
     }
 
+//TODO---------------------------4/23
 
     /**
      * 获取会话信息
