@@ -6,6 +6,7 @@ import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
+import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.Data;
@@ -13,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.example.service.AiOpsService;
 import org.example.service.ChatService;
+import org.example.service.SummarizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallback;
@@ -49,6 +51,9 @@ public class ChatController {
 
     @Autowired
     private ToolCallbackProvider tools;
+
+    @Autowired
+    private SummarizationService summarizationService;
 
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
@@ -247,6 +252,8 @@ public class ChatController {
                     () -> {
                         // 完成处理
                         try {
+
+
                             String fullAnswer = fullAnswerBuilder.toString();
                             logger.info("ReactAgent 流式对话完成 - SessionId: {}, 答案长度: {}", 
                                 request.getId(), fullAnswer.length());
@@ -255,6 +262,24 @@ public class ChatController {
                             session.addMessage(request.getQuestion(), fullAnswer);
                             logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}", 
                                 request.getId(), session.getMessagePairCount());
+
+                            if (session.getMessagePairCount()*2 >= 5){
+                                logger.info("开始进行对话总结");
+                                StringBuilder summhistory  = new StringBuilder();
+                                for (Map<String, String> message : session.getHistory()){
+                                    // 将问题以及消息内容添加到历史记录中
+                                    summhistory.append(message.get("role")).append(": ").append(message.get("content")).append("\n");
+                                    logger.info("添加历史记录: {}", message);
+                                }
+                                String summarize = summarizationService.summarize(summhistory.toString());
+                                // 删除原来的历史会话 添加新总结
+                                session.clearHistory();
+                                session.addMessage("summarize", summarize);
+                                logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}, 总结历史内容为: {}",session.sessionId,session.getMessagePairCount(),summarize);
+                            }
+
+
+
                             
                             // 发送完成标记
                             emitter.send(SseEmitter.event()
@@ -427,6 +452,7 @@ public class ChatController {
      * @return
      */
     private SessionInfo getOrCreateSession(String sessionId) {
+        // 如果sessionId为空 表示一个新的会话 生成UUID  将其创建
         if (sessionId == null || sessionId.isEmpty()) {
             sessionId = UUID.randomUUID().toString();
         }
