@@ -68,8 +68,6 @@ public class InternalDocsTools {
             
             // 将搜索结果转换为 JSON 格式
             String resultJson = objectMapper.writeValueAsString(searchResults);
-            
-
             return resultJson;
             
         } catch (Exception e) {

@@ -67,3 +67,6 @@ application-test.properties
 application-test.yml
 **/application*.properties
 **/application*.yml
+
+AliyunJavaAgent/**
+prometheus-3.11.2.windows-amd64/**

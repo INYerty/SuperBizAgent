@@ -252,12 +252,9 @@ public class ChatController {
                     () -> {
                         // 完成处理
                         try {
-
-
                             String fullAnswer = fullAnswerBuilder.toString();
                             logger.info("ReactAgent 流式对话完成 - SessionId: {}, 答案长度: {}", 
                                 request.getId(), fullAnswer.length());
-                            
                             // 更新会话历史
                             session.addMessage(request.getQuestion(), fullAnswer);
                             logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}", 
@@ -277,10 +274,6 @@ public class ChatController {
                                 session.addMessage("summarize", summarize);
                                 logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}, 总结历史内容为: {}",session.sessionId,session.getMessagePairCount(),summarize);
                             }
-
-
-
-                            
                             // 发送完成标记
                             emitter.send(SseEmitter.event()
                                     .name("message")
@@ -323,7 +316,7 @@ public class ChatController {
 
                 DashScopeApi dashScopeApi = chatService.createDashScopeApi();
                 //TODO 根据实际需求，选择合适的模型名称
-                String DEFAULT_MODEL_NAME = "qwen-max";
+                String DEFAULT_MODEL_NAME = "qwen-max-latest";
                 DashScopeChatModel chatModel = DashScopeChatModel.builder()
                         .dashScopeApi(dashScopeApi)
                         .defaultOptions(DashScopeChatOptions.builder()

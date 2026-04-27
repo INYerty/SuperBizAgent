@@ -66,7 +66,7 @@ public class ChatService {
      */
     public DashScopeChatModel createChatModel(DashScopeApi dashScopeApi, double temperature, int maxToken, double topP) {
         //TODO 根据实际需求，选择合适的模型名称
-        String DEFAULT_MODEL_NAME = "qwen-max";
+        String DEFAULT_MODEL_NAME = "qwen-max-latest";
         return DashScopeChatModel.builder()
                 .dashScopeApi(dashScopeApi)
                 .defaultOptions(DashScopeChatOptions.builder()

@@ -37,7 +37,7 @@ public class QueryMetricsTools {
     @Value("${prometheus.timeout:10}")
     private int timeout;
     
-    @Value("${prometheus.mock-enabled:false}")
+    @Value("${prometheus.mock-enabled:true}")
     private boolean mockEnabled;
     
     private OkHttpClient httpClient;
