@@ -33,7 +33,7 @@ public class SummarizationService {
         chatModel = DashScopeChatModel.builder()
                 .dashScopeApi(chatService.createDashScopeApi())
                 .defaultOptions(DashScopeChatOptions.builder()
-                        .withModel("qwen-max")
+                        .withModel("deepseek-v4-flash")
                         .withTemperature(0.7)
                         .withMaxToken(2000)
                         .withTopP(0.9)

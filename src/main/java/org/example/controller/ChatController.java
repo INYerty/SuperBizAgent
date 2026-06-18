@@ -316,7 +316,7 @@ public class ChatController {
 
                 DashScopeApi dashScopeApi = chatService.createDashScopeApi();
                 //TODO 根据实际需求，选择合适的模型名称
-                String DEFAULT_MODEL_NAME = "qwen-max-latest";
+                String DEFAULT_MODEL_NAME = "deepseek-v4-flash";
                 DashScopeChatModel chatModel = DashScopeChatModel.builder()
                         .dashScopeApi(dashScopeApi)
                         .defaultOptions(DashScopeChatOptions.builder()
