@@ -34,9 +34,9 @@ public class VectorSearchService {
 
     /**
      * 搜索相似文档
-     * 
+     *
      * @param query 查询文本
-     * @param topK 返回最相似的K个结果
+     * @param topK  返回最相似的K个结果
      * @return 搜索结果列表
      */
     public List<SearchResult> searchSimilarDocuments(String query, int topK) {
@@ -88,13 +88,13 @@ public class VectorSearchService {
                 result.setId((String) wrapper.getIDScore(0).get(i).get("id"));
                 result.setContent((String) wrapper.getFieldData("content", 0).get(i));
                 result.setScore(wrapper.getIDScore(0).get(i).getScore());
-                
+
                 // 解析 metadata
                 Object metadataObj = wrapper.getFieldData("metadata", 0).get(i);
                 if (metadataObj != null) {
                     result.setMetadata(metadataObj.toString());
                 }
-                
+
                 results.add(result);
             }
 //------------------------TODO-----4/18------------

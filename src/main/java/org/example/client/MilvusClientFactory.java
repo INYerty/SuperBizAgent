@@ -2,12 +2,11 @@ package org.example.client;
 
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
-import io.milvus.param.ConnectParam;
-import io.milvus.param.IndexType;
-import io.milvus.param.MetricType;
-import io.milvus.param.R;
-import io.milvus.param.RpcStatus;
-import io.milvus.param.collection.*;
+import io.milvus.param.*;
+import io.milvus.param.collection.CollectionSchemaParam;
+import io.milvus.param.collection.CreateCollectionParam;
+import io.milvus.param.collection.FieldType;
+import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.index.CreateIndexParam;
 import org.example.config.MilvusProperties;
 import org.example.constant.MilvusConstants;
@@ -32,9 +31,9 @@ public class MilvusClientFactory {
 
     /**
      * 创建并初始化 Milvus 客户端
-     * 
+     * <p>
      * 简化版本：直接连接并创建 collection
-     * 
+     *
      * @return MilvusServiceClient 实例
      * @throws RuntimeException 如果连接或初始化失败
      */
@@ -52,7 +51,7 @@ public class MilvusClientFactory {
                 logger.info("collection '{}' 不存在，正在创建...", MilvusConstants.MILVUS_COLLECTION_NAME);
                 createBizCollection(client);
                 logger.info("成功创建 collection '{}'", MilvusConstants.MILVUS_COLLECTION_NAME);
-                
+
                 // 创建索引
                 createIndexes(client);
                 logger.info("成功创建索引");
@@ -173,7 +172,7 @@ public class MilvusClientFactory {
         if (response.getStatus() != 0) {
             throw new RuntimeException("创建 vector 索引失败: " + response.getMessage());
         }
-        
+
         logger.info("成功为 {} 字段创建索引", MilvusConstants.VECTOR_FIELD_NAME);
     }
 }

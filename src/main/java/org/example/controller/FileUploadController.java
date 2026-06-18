@@ -57,13 +57,13 @@ public class FileUploadController {
 
             // 使用原始文件名，而不是UUID，以便实现基于文件名的去重
             Path filePath = uploadDir.resolve(originalFilename).normalize();
-            
+
             // 如果文件已存在，先删除旧文件（实现覆盖更新）
             if (Files.exists(filePath)) {
                 logger.info("文件已存在，将覆盖: {}", filePath);
                 Files.delete(filePath);
             }
-            
+
             Files.copy(file.getInputStream(), filePath);
 
             logger.info("文件上传成功: {}", filePath);
@@ -90,7 +90,7 @@ public class FileUploadController {
             apiResponse.setCode(200);
             apiResponse.setMessage("success");
             apiResponse.setData(response);
-            
+
             return ResponseEntity.ok(apiResponse);
 
         } catch (IOException e) {
@@ -100,6 +100,23 @@ public class FileUploadController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(errorResponse);
         }
+    }
+
+    private String getFileExtension(String filename) {
+        int lastIndexOf = filename.lastIndexOf(".");
+        if (lastIndexOf == -1) {
+            return "";
+        }
+        return filename.substring(lastIndexOf + 1).toLowerCase();
+    }
+
+    private boolean isAllowedExtension(String extension) {
+        String allowedExtensions = fileUploadConfig.getAllowedExtensions();
+        if (allowedExtensions == null || allowedExtensions.isEmpty()) {
+            return false;
+        }
+        List<String> allowedList = Arrays.asList(allowedExtensions.split(","));
+        return allowedList.contains(extension.toLowerCase());
     }
 
     /**
@@ -133,22 +150,5 @@ public class FileUploadController {
         public void setData(T data) {
             this.data = data;
         }
-    }
-
-    private String getFileExtension(String filename) {
-        int lastIndexOf = filename.lastIndexOf(".");
-        if (lastIndexOf == -1) {
-            return "";
-        }
-        return filename.substring(lastIndexOf + 1).toLowerCase();
-    }
-
-    private boolean isAllowedExtension(String extension) {
-        String allowedExtensions = fileUploadConfig.getAllowedExtensions();
-        if (allowedExtensions == null || allowedExtensions.isEmpty()) {
-            return false;
-        }
-        List<String> allowedList = Arrays.asList(allowedExtensions.split(","));
-        return allowedList.contains(extension.toLowerCase());
     }
 }

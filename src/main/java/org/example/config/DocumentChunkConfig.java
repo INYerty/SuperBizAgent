@@ -11,12 +11,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "document.chunk")
 public class DocumentChunkConfig {
-    
+
     /**
      * 每个分片的最大字符数
      */
     private int maxSize = 800;
-    
+
     /**
      * 分片之间的重叠字符数
      */

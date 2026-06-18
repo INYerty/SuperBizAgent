@@ -4,7 +4,6 @@ import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
-import com.alibaba.cloud.ai.graph.agent.hook.summarization.SummarizationHook;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import org.example.agent.tool.DateTimeTools;
 import org.example.agent.tool.InternalDocsTools;
@@ -12,7 +11,6 @@ import org.example.agent.tool.QueryLogsTools;
 import org.example.agent.tool.QueryMetricsTools;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,9 +58,10 @@ public class ChatService {
 
     /**
      * 创建 ChatModel
+     *
      * @param temperature 控制随机性 (0.0-1.0)
-     * @param maxToken 最大输出长度
-     * @param topP 核采样参数
+     * @param maxToken    最大输出长度
+     * @param topP        核采样参数
      */
     public DashScopeChatModel createChatModel(DashScopeApi dashScopeApi, double temperature, int maxToken, double topP) {
         //TODO 根据实际需求，选择合适的模型名称
@@ -95,19 +94,20 @@ public class ChatService {
 
     /**
      * 构建系统提示词（包含历史消息）
+     *
      * @param history 历史消息列表
      * @return 完整的系统提示词
      */
     public String buildSystemPrompt(List<Map<String, String>> history) {
         StringBuilder systemPromptBuilder = new StringBuilder();
-        
+
         // 基础系统提示
         systemPromptBuilder.append("你是一个专业的智能助手，可以获取当前时间、查询天气信息、搜索内部文档知识库，以及查询 Prometheus 告警信息。\n");
         systemPromptBuilder.append("当用户询问时间相关问题时，使用 getCurrentDateTime 工具。\n");
         systemPromptBuilder.append("当用户需要查询公司内部文档、流程、最佳实践或技术指南时，使用 queryInternalDocs 工具。\n");
         systemPromptBuilder.append("当用户需要查询 Prometheus 告警、监控指标或系统告警状态时，使用 queryPrometheusAlerts 工具。\n");
         systemPromptBuilder.append("当用户需要查询腾讯云日志时，请调用腾讯云mcp服务查询,默认查询地域ap-guangzhou,查询时间范围为近一个月。\n\n");
-        
+
         // 添加历史消息
         if (!history.isEmpty()) {
             systemPromptBuilder.append("--- 对话历史 ---\n");
@@ -122,9 +122,9 @@ public class ChatService {
             }
             systemPromptBuilder.append("--- 对话历史结束 ---\n\n");
         }
-        
+
         systemPromptBuilder.append("请基于以上对话历史，回答用户的新问题。");
-        
+
         return systemPromptBuilder.toString();
     }
 
@@ -162,7 +162,8 @@ public class ChatService {
 
     /**
      * 创建 ReactAgent
-     * @param chatModel 聊天模型
+     *
+     * @param chatModel    聊天模型
      * @param systemPrompt 系统提示词
      * @return 配置好的 ReactAgent
      */
@@ -178,7 +179,8 @@ public class ChatService {
 
     /**
      * 执行 ReactAgent 对话（非流式）
-     * @param agent ReactAgent 实例
+     *
+     * @param agent    ReactAgent 实例
      * @param question 用户问题
      * @return AI 回复
      */

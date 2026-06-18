@@ -440,10 +440,25 @@ body {
     line-height: 1.25;
 }
 
-.message-content h1 { font-size: 1.5em; border-bottom: 1px solid #e8eaed; padding-bottom: 8px; }
-.message-content h2 { font-size: 1.3em; border-bottom: 1px solid #e8eaed; padding-bottom: 6px; }
-.message-content h3 { font-size: 1.15em; }
-.message-content h4 { font-size: 1em; }
+.message-content h1 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #e8eaed;
+    padding-bottom: 8px;
+}
+
+.message-content h2 {
+    font-size: 1.3em;
+    border-bottom: 1px solid #e8eaed;
+    padding-bottom: 6px;
+}
+
+.message-content h3 {
+    font-size: 1.15em;
+}
+
+.message-content h4 {
+    font-size: 1em;
+}
 
 .message-content p {
     margin-top: 0;
@@ -564,8 +579,12 @@ body {
 }
 
 @keyframes blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+    0%, 50% {
+        opacity: 1;
+    }
+    51%, 100% {
+        opacity: 0;
+    }
 }
 
 /* 加载消息样式 */
@@ -926,8 +945,12 @@ body {
 
 /* 加载动画 */
 @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
 }
 
 .loading {
@@ -978,7 +1001,9 @@ body {
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* 智能运维消息样式 */
@@ -1136,28 +1161,28 @@ body {
     .sidebar {
         width: 240px;
     }
-    
+
     .message-content {
         max-width: 90%;
         font-size: 0.9rem;
     }
-    
+
     .input-wrapper {
         flex-wrap: wrap;
     }
-    
+
     .mode-selector-wrapper {
         order: -1;
         width: 100%;
         margin-left: 0;
         margin-bottom: 8px;
     }
-    
+
     .mode-selector-btn {
         width: 100%;
         justify-content: space-between;
     }
-    
+
     .mode-dropdown {
         width: 100%;
         right: 0;

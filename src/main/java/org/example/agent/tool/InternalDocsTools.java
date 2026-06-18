@@ -18,19 +18,17 @@ import java.util.List;
  */
 @Component
 public class InternalDocsTools {
-    
-    private static final Logger logger = LoggerFactory.getLogger(InternalDocsTools.class);
-    
-    /** 工具名常量，用于动态构建提示词 */
+
+    /**
+     * 工具名常量，用于动态构建提示词
+     */
     public static final String TOOL_QUERY_INTERNAL_DOCS = "queryInternalDocs";
-    
+    private static final Logger logger = LoggerFactory.getLogger(InternalDocsTools.class);
     private final VectorSearchService vectorSearchService;
-    
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Value("${rag.top-k:3}")
     private int topK = 3; // 默认值
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     /**
      * 构造函数注入依赖
      * Spring 会自动注入 VectorSearchService
@@ -39,7 +37,7 @@ public class InternalDocsTools {
     public InternalDocsTools(VectorSearchService vectorSearchService) {
         this.vectorSearchService = vectorSearchService;
     }
-    
+
     /**
      * 查询内部文档工具
      *
@@ -51,28 +49,28 @@ public class InternalDocsTools {
             "This is useful when you need to understand internal procedures, best practices, or step-by-step guides " +
             "stored in the company's documentation.")
     public String queryInternalDocs(
-            @ToolParam(description = "Search query describing what information you are looking for") 
+            @ToolParam(description = "Search query describing what information you are looking for")
             String query) {
 
         //LLM 去分析用户的提问  并问出问题 这里的query就是用户的问题
-        
+
 
         try {
             // 使用向量搜索服务检索相关文档
-            List<VectorSearchService.SearchResult> searchResults = 
+            List<VectorSearchService.SearchResult> searchResults =
                     vectorSearchService.searchSimilarDocuments(query, topK);
-            
+
             if (searchResults.isEmpty()) {
                 return "{\"status\": \"no_results\", \"message\": \"No relevant documents found in the knowledge base.\"}";
             }
-            
+
             // 将搜索结果转换为 JSON 格式
             String resultJson = objectMapper.writeValueAsString(searchResults);
             return resultJson;
-            
+
         } catch (Exception e) {
             logger.error("[工具错误] queryInternalDocs 执行失败", e);
-            return String.format("{\"status\": \"error\", \"message\": \"Failed to query internal docs: %s\"}", 
+            return String.format("{\"status\": \"error\", \"message\": \"Failed to query internal docs: %s\"}",
                     e.getMessage());
         }
     }

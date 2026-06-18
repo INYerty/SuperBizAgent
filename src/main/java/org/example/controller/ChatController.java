@@ -6,7 +6,6 @@ import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
-import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import lombok.Data;
@@ -42,26 +41,19 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ChatController {
 
     private static final Logger logger = LoggerFactory.getLogger(ChatController.class);
-
-    @Autowired
-    private AiOpsService aiOpsService;
-    
-    @Autowired
-    private ChatService chatService;
-
-    @Autowired
-    private ToolCallbackProvider tools;
-
-    @Autowired
-    private SummarizationService summarizationService;
-
-    private final ExecutorService executor = Executors.newCachedThreadPool();
-
-    // 存储会话信息
-    private final Map<String, SessionInfo> sessions = new ConcurrentHashMap<>();
-    
     // 最大历史消息窗口大小（成对计算：用户消息+AI回复=1对）
     private static final int MAX_WINDOW_SIZE = 6;
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+    // 存储会话信息
+    private final Map<String, SessionInfo> sessions = new ConcurrentHashMap<>();
+    @Autowired
+    private AiOpsService aiOpsService;
+    @Autowired
+    private ChatService chatService;
+    @Autowired
+    private ToolCallbackProvider tools;
+    @Autowired
+    private SummarizationService summarizationService;
 
     /**
      * 普通对话接口（支持工具调用）
@@ -80,7 +72,7 @@ public class ChatController {
 
             // 获取或创建会话
             SessionInfo session = getOrCreateSession(request.getId());
-            
+
             // 获取历史消息
             List<Map<String, String>> history = session.getHistory();
             logger.info("会话历史消息对数: {}", history.size() / 2);  // 一问一答即为一轮
@@ -93,21 +85,21 @@ public class ChatController {
             chatService.logAvailableTools();
 
             logger.info("开始 ReactAgent 对话（支持自动工具调用）");
-            
+
             // 构建系统提示词（包含历史消息）
             String systemPrompt = chatService.buildSystemPrompt(history);
-            
+
             // 创建 ReactAgent
             ReactAgent agent = chatService.createReactAgent(chatModel, systemPrompt);
-            
+
             // 执行对话
             String fullAnswer = chatService.executeChat(agent, request.getQuestion()); // 返回的就是ai回复答案
-            
+
             // 更新会话历史
             session.addMessage(request.getQuestion(), fullAnswer);
-            logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}", 
-                request.getId(), session.getMessagePairCount());
-            
+            logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}",
+                    request.getId(), session.getMessagePairCount());
+
             return ResponseEntity.ok(ApiResponse.success(ChatResponse.success(fullAnswer)));
 
         } catch (Exception e) {
@@ -118,6 +110,7 @@ public class ChatController {
 
 
     //TODO 前端没有清空会话历史的按钮
+
     /**
      * 清空会话历史
      */
@@ -170,7 +163,7 @@ public class ChatController {
 
                 // 获取或创建会话
                 SessionInfo session = getOrCreateSession(request.getId());
-                
+
                 // 获取历史消息
                 List<Map<String, String>> history = session.getHistory();
                 logger.info("ReactAgent 会话历史消息对数: {}", history.size() / 2);
@@ -183,107 +176,107 @@ public class ChatController {
                 chatService.logAvailableTools();
 
                 logger.info("开始 ReactAgent 流式对话（支持自动工具调用）");
-                
+
                 // 构建系统提示词（包含历史消息）
                 String systemPrompt = chatService.buildSystemPrompt(history);
-                
+
                 // 创建 ReactAgent
                 ReactAgent agent = chatService.createReactAgent(chatModel, systemPrompt);
-                
+
                 // 用于累积完整答案   这里用于将打字机效果的一个字一个字累积起来变成一个完整的Agent回答段落 用于存储到会话历史中。
                 StringBuilder fullAnswerBuilder = new StringBuilder();
-                
+
                 // 使用 agent.stream() 进行流式对话
                 Flux<NodeOutput> stream = agent.stream(request.getQuestion());
-                
-                stream.subscribe(
-                    output -> {
-                        try {
-                            // 检查是否为 StreamingOutput 类型
-                            if (output instanceof StreamingOutput streamingOutput) {
-                                OutputType type = streamingOutput.getOutputType();
-                                
-                                // 处理模型推理的流式输出
-                                if (type == OutputType.AGENT_MODEL_STREAMING) {
-                                    // 流式增量内容，逐步显示
-                                    //如果检测到是AI对话 那么将输出的内容 强制转换成String类型表示大模型的输出。
-                                    String chunk = streamingOutput.message().getText();
-                                    if (chunk != null && !chunk.isEmpty()) {
-                                        fullAnswerBuilder.append(chunk);
-                                        
-                                        // 实时发送到前端
-                                        emitter.send(SseEmitter.event()
-                                                /*event: message                 <-- 因为你写了 .name("message") 才会多出这一行
-                                                data: {"type":"content","data":"你好"}*/
-                                                .name("message")
-                                                .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
-                                        
-                                        logger.info("发送流式内容: {}", chunk);
-                                    }
-                                } else if (type == OutputType.AGENT_MODEL_FINISHED) {
-                                    // 模型推理完成
-                                    logger.info("模型输出完成");
-                                } else if (type == OutputType.AGENT_TOOL_FINISHED) {
-                                    // 工具调用完成
-                                    logger.info("工具调用完成: {}", output.node());
-                                } else if (type == OutputType.AGENT_HOOK_FINISHED) {
-                                    // Hook 执行完成
-                                    logger.debug("Hook 执行完成: {}", output.node());
-                                }
-                            }
-                        } catch (IOException e) {
-                            logger.error("发送流式消息失败", e);
-                            throw new RuntimeException(e);
-                        }
-                    },
-                    error -> {
-                        // 错误处理
-                        logger.error("ReactAgent 流式对话失败", error);
-                        try {
-                            emitter.send(SseEmitter.event()
-                                    .name("message")
-                                    .data(SseMessage.error(error.getMessage()), MediaType.APPLICATION_JSON));
-                        } catch (IOException ex) {
-                            logger.error("发送错误消息失败", ex);
-                        }
-                        emitter.completeWithError(error);
-                    },
-                        //TODO 再理解一下
-                    () -> {
-                        // 完成处理
-                        try {
-                            String fullAnswer = fullAnswerBuilder.toString();
-                            logger.info("ReactAgent 流式对话完成 - SessionId: {}, 答案长度: {}", 
-                                request.getId(), fullAnswer.length());
-                            // 更新会话历史
-                            session.addMessage(request.getQuestion(), fullAnswer);
-                            logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}", 
-                                request.getId(), session.getMessagePairCount());
 
-                            if (session.getMessagePairCount()*2 >= 5){
-                                logger.info("开始进行对话总结");
-                                StringBuilder summhistory  = new StringBuilder();
-                                for (Map<String, String> message : session.getHistory()){
-                                    // 将问题以及消息内容添加到历史记录中
-                                    summhistory.append(message.get("role")).append(": ").append(message.get("content")).append("\n");
-                                    logger.info("添加历史记录: {}", message);
+                stream.subscribe(
+                        output -> {
+                            try {
+                                // 检查是否为 StreamingOutput 类型
+                                if (output instanceof StreamingOutput streamingOutput) {
+                                    OutputType type = streamingOutput.getOutputType();
+
+                                    // 处理模型推理的流式输出
+                                    if (type == OutputType.AGENT_MODEL_STREAMING) {
+                                        // 流式增量内容，逐步显示
+                                        //如果检测到是AI对话 那么将输出的内容 强制转换成String类型表示大模型的输出。
+                                        String chunk = streamingOutput.message().getText();
+                                        if (chunk != null && !chunk.isEmpty()) {
+                                            fullAnswerBuilder.append(chunk);
+
+                                            // 实时发送到前端
+                                            emitter.send(SseEmitter.event()
+                                                    /*event: message                 <-- 因为你写了 .name("message") 才会多出这一行
+                                                    data: {"type":"content","data":"你好"}*/
+                                                    .name("message")
+                                                    .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
+
+                                            logger.info("发送流式内容: {}", chunk);
+                                        }
+                                    } else if (type == OutputType.AGENT_MODEL_FINISHED) {
+                                        // 模型推理完成
+                                        logger.info("模型输出完成");
+                                    } else if (type == OutputType.AGENT_TOOL_FINISHED) {
+                                        // 工具调用完成
+                                        logger.info("工具调用完成: {}", output.node());
+                                    } else if (type == OutputType.AGENT_HOOK_FINISHED) {
+                                        // Hook 执行完成
+                                        logger.debug("Hook 执行完成: {}", output.node());
+                                    }
                                 }
-                                String summarize = summarizationService.summarize(summhistory.toString());
-                                // 删除原来的历史会话 添加新总结
-                                session.clearHistory();
-                                session.addMessage("summarize", summarize);
-                                logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}, 总结历史内容为: {}",session.sessionId,session.getMessagePairCount(),summarize);
+                            } catch (IOException e) {
+                                logger.error("发送流式消息失败", e);
+                                throw new RuntimeException(e);
                             }
-                            // 发送完成标记
-                            emitter.send(SseEmitter.event()
-                                    .name("message")
-                                    .data(SseMessage.done(), MediaType.APPLICATION_JSON));
-                            emitter.complete();
-                        } catch (IOException e) {
-                            logger.error("发送完成消息失败", e);
-                            emitter.completeWithError(e);
+                        },
+                        error -> {
+                            // 错误处理
+                            logger.error("ReactAgent 流式对话失败", error);
+                            try {
+                                emitter.send(SseEmitter.event()
+                                        .name("message")
+                                        .data(SseMessage.error(error.getMessage()), MediaType.APPLICATION_JSON));
+                            } catch (IOException ex) {
+                                logger.error("发送错误消息失败", ex);
+                            }
+                            emitter.completeWithError(error);
+                        },
+                        //TODO 再理解一下
+                        () -> {
+                            // 完成处理
+                            try {
+                                String fullAnswer = fullAnswerBuilder.toString();
+                                logger.info("ReactAgent 流式对话完成 - SessionId: {}, 答案长度: {}",
+                                        request.getId(), fullAnswer.length());
+                                // 更新会话历史
+                                session.addMessage(request.getQuestion(), fullAnswer);
+                                logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}",
+                                        request.getId(), session.getMessagePairCount());
+
+                                if (session.getMessagePairCount() * 2 >= 5) {
+                                    logger.info("开始进行对话总结");
+                                    StringBuilder summhistory = new StringBuilder();
+                                    for (Map<String, String> message : session.getHistory()) {
+                                        // 将问题以及消息内容添加到历史记录中
+                                        summhistory.append(message.get("role")).append(": ").append(message.get("content")).append("\n");
+                                        logger.info("添加历史记录: {}", message);
+                                    }
+                                    String summarize = summarizationService.summarize(summhistory.toString());
+                                    // 删除原来的历史会话 添加新总结
+                                    session.clearHistory();
+                                    session.addMessage("summarize", summarize);
+                                    logger.info("已更新会话历史 - SessionId: {}, 当前消息对数: {}, 总结历史内容为: {}", session.sessionId, session.getMessagePairCount(), summarize);
+                                }
+                                // 发送完成标记
+                                emitter.send(SseEmitter.event()
+                                        .name("message")
+                                        .data(SseMessage.done(), MediaType.APPLICATION_JSON));
+                                emitter.complete();
+                            } catch (IOException e) {
+                                logger.error("发送完成消息失败", e);
+                                emitter.completeWithError(e);
+                            }
                         }
-                    }
                 );
 
             } catch (Exception e) {
@@ -332,10 +325,10 @@ public class ChatController {
 
                 emitter.send(
                         SseEmitter.event()
-                        .name("message")
-                        .data(SseMessage.content("正在读取告警并拆解任务...\n"))
+                                .name("message")
+                                .data(SseMessage.content("正在读取告警并拆解任务...\n"))
                 );
-                
+
                 // 调用 AiOpsService 执行分析流程
                 Optional<OverAllState> overAllStateOptional = aiOpsService.executeAiOpsAnalysis(chatModel, toolCallbacks);
 
@@ -356,11 +349,11 @@ public class ChatController {
                 if (finalReportOptional.isPresent()) {
                     String finalReportText = finalReportOptional.get();
                     logger.info("提取到 Planner 最终报告，长度: {}", finalReportText.length());
-                    
+
                     // 发送分隔线
                     emitter.send(SseEmitter.event().name("message")
                             .data(SseMessage.content("\n\n" + "=".repeat(60) + "\n"), MediaType.APPLICATION_JSON));
-                    
+
                     // 发送完整的告警分析报告
                     emitter.send(SseEmitter.event().name("message")
                             .data(SseMessage.content("📋 **告警分析报告**\n\n"), MediaType.APPLICATION_JSON));
@@ -375,15 +368,15 @@ public class ChatController {
                         //防止发生越界
                         int end = Math.min(i + chunkSize, finalReportText.length());
                         String chunk = finalReportText.substring(i, end);
-                        
+
                         emitter.send(SseEmitter.event().name("message")
                                 .data(SseMessage.content(chunk), MediaType.APPLICATION_JSON));
                     }
-                    
+
                     // 发送结束分隔线
                     emitter.send(SseEmitter.event().name("message")
                             .data(SseMessage.content("\n" + "=".repeat(60) + "\n\n"), MediaType.APPLICATION_JSON));
-                    
+
                     logger.info("最终报告已完整输出");
                 } else {
                     logger.warn("未能提取到 Planner 最终报告");
@@ -441,6 +434,7 @@ public class ChatController {
 
     /**
      * 获取会话
+     *
      * @param sessionId
      * @return
      */
@@ -502,8 +496,8 @@ public class ChatController {
                     }
                 }
 
-                logger.debug("会话 {} 更新历史消息，当前消息对数: {}", 
-                    sessionId, messageHistory.size() / 2);
+                logger.debug("会话 {} 更新历史消息，当前消息对数: {}",
+                        sessionId, messageHistory.size() / 2);
 
             } finally {
                 lock.unlock();
@@ -558,7 +552,7 @@ public class ChatController {
         @com.fasterxml.jackson.annotation.JsonProperty(value = "Id")
         @com.fasterxml.jackson.annotation.JsonAlias({"id", "ID"})
         private String Id;
-        
+
         @com.fasterxml.jackson.annotation.JsonProperty(value = "Question")
         @com.fasterxml.jackson.annotation.JsonAlias({"question", "QUESTION"})
         private String Question;

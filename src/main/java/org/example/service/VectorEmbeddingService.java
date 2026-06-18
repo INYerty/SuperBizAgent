@@ -1,8 +1,8 @@
 package org.example.service;
 
-import org.springframework.ai.embedding.EmbeddingModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +25,7 @@ public class VectorEmbeddingService {
     /**
      * 生成向量嵌入
      * 调用阿里云 DashScope Text Embedding API
-     * 
+     *
      * @param content 文本内容
      * @return 向量嵌入（浮点数列表）
      */
@@ -49,8 +49,8 @@ public class VectorEmbeddingService {
                 floatEmbedding.add(value);
             }
 
-            logger.info("成功生成向量嵌入, 内容长度: {} 字符, 向量维度: {}", 
-                content.length(), floatEmbedding.size());
+            logger.info("成功生成向量嵌入, 内容长度: {} 字符, 向量维度: {}",
+                    content.length(), floatEmbedding.size());
 
             return floatEmbedding;
 
@@ -62,9 +62,10 @@ public class VectorEmbeddingService {
 
 
 // TODO 下面这个方法就是生成一次多个向量的方法。  参数是文本内容的列表  也就是问题衍生出来的多个问题
+
     /**
      * 批量生成向量嵌入
-     * 
+     *
      * @param contents 文本内容列表
      * @return 向量嵌入列表
      */
@@ -94,9 +95,9 @@ public class VectorEmbeddingService {
                 embeddings.add(embedding);
             }
 
-            logger.info("成功批量生成向量嵌入, 数量: {}, 维度: {}", 
-                embeddings.size(), 
-                embeddings.isEmpty() ? 0 : embeddings.get(0).size());
+            logger.info("成功批量生成向量嵌入, 数量: {}, 维度: {}",
+                    embeddings.size(),
+                    embeddings.isEmpty() ? 0 : embeddings.get(0).size());
 
             return embeddings;
 
@@ -107,9 +108,10 @@ public class VectorEmbeddingService {
     }
 
     //--------------------------------------TODO----------------------------------------
+
     /**
      * 生成查询向量
-     * 
+     *
      * @param query 查询文本
      * @return 向量嵌入
      */
@@ -119,7 +121,7 @@ public class VectorEmbeddingService {
 
     /**
      * 计算两个向量的余弦相似度
-     * 
+     *
      * @param vector1 向量1
      * @param vector2 向量2
      * @return 余弦相似度 [-1, 1]

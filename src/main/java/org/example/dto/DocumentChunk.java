@@ -15,22 +15,22 @@ public class DocumentChunk {
      * 分片内容
      */
     private String content;
-    
+
     /**
      * 分片在原文档中的起始位置
      */
     private int startIndex;
-    
+
     /**
      * 分片在原文档中的结束位置
      */
     private int endIndex;
-    
+
     /**
      * 分片序号（从0开始）
      */
     private int chunkIndex;
-    
+
     /**
      * 分片标题或上下文信息
      */

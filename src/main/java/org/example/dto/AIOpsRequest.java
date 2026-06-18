@@ -7,7 +7,7 @@ import lombok.Data;
  */
 @Data
 public class AIOpsRequest {
-    
+
     /**
      * 用户请求描述
      */

@@ -27,8 +27,8 @@ public class DocumentChunkService {
     /**
      * 智能分片文档
      * 优先按照标题、段落边界进行分割，保持语义完整性
-     * 
-     * @param content 文档内容
+     *
+     * @param content  文档内容
      * @param filePath 文件路径（用于日志）
      * @return 文档分片列表
      */
@@ -42,7 +42,7 @@ public class DocumentChunkService {
 
         // 1. 首先尝试按标题分割（Markdown格式）
         List<Section> sections = splitByHeadings(content);
-        
+
         // 2. 对每个章节进行进一步分片
         //初始分片编号 起始是0
         int globalChunkIndex = 0;
@@ -59,12 +59,13 @@ public class DocumentChunkService {
     }
 
     //TODO： 这里要复习
+
     /**
      * 按照 Markdown 标题分割文档
      */
     private List<Section> splitByHeadings(String content) {
         List<Section> sections = new ArrayList<>();
-        
+
         // 匹配 Markdown 标题：# 标题, ## 标题, ### 标题等
         Pattern headingPattern = Pattern.compile("^(#{1,6})\\s+(.+)$", Pattern.MULTILINE);
         Matcher matcher = headingPattern.matcher(content);
@@ -115,10 +116,10 @@ public class DocumentChunkService {
         // 如果章节内容小于最大尺寸，直接作为一个分片
         if (content.length() <= chunkConfig.getMaxSize()) {
             DocumentChunk chunk = new DocumentChunk(
-                content, //文章内容
-                section.startIndex, //起始分片地址
-                section.startIndex + content.length(), //终止分片地址
-                startChunkIndex //分片编号
+                    content, //文章内容
+                    section.startIndex, //起始分片地址
+                    section.startIndex + content.length(), //终止分片地址
+                    startChunkIndex //分片编号
             );
             chunk.setTitle(title);
             chunks.add(chunk);
@@ -128,23 +129,23 @@ public class DocumentChunkService {
         // 章节内容较长，需要进一步分片
         // 优先在段落边界分割
         List<String> paragraphs = splitByParagraphs(content);
-        
+
         StringBuilder currentChunk = new StringBuilder();
         int currentStartIndex = section.startIndex;
         int chunkIndex = startChunkIndex;
 
         for (String paragraph : paragraphs) {
             // 如果当前分片加上新段落超过最大尺寸
-            if (currentChunk.length() > 0 && 
-                currentChunk.length() + paragraph.length() > chunkConfig.getMaxSize()) {
-                
+            if (currentChunk.length() > 0 &&
+                    currentChunk.length() + paragraph.length() > chunkConfig.getMaxSize()) {
+
                 // 保存当前分片
                 String chunkContent = currentChunk.toString().trim();
                 DocumentChunk chunk = new DocumentChunk(
-                    chunkContent,
-                    currentStartIndex,
-                    currentStartIndex + chunkContent.length(),
-                    chunkIndex++
+                        chunkContent,
+                        currentStartIndex,
+                        currentStartIndex + chunkContent.length(),
+                        chunkIndex++
                 );
                 chunk.setTitle(title);
                 chunks.add(chunk);
@@ -162,10 +163,10 @@ public class DocumentChunkService {
         if (currentChunk.length() > 0) {
             String chunkContent = currentChunk.toString().trim();
             DocumentChunk chunk = new DocumentChunk(
-                chunkContent,
-                currentStartIndex,
-                currentStartIndex + chunkContent.length(),
-                chunkIndex
+                    chunkContent,
+                    currentStartIndex,
+                    currentStartIndex + chunkContent.length(),
+                    chunkIndex
             );
             chunk.setTitle(title);
             chunks.add(chunk);
@@ -179,7 +180,7 @@ public class DocumentChunkService {
      */
     private List<String> splitByParagraphs(String content) {
         List<String> paragraphs = new ArrayList<>();
-        
+
         // 按双换行符分割段落
         String[] parts = content.split("\n\n+");
         for (String part : parts) {
@@ -204,11 +205,11 @@ public class DocumentChunkService {
 
         // 从末尾提取重叠内容
         String overlap = text.substring(text.length() - overlapSize);
-        
+
         // 尝试在句子边界截断（查找最后一个句号、问号、感叹号）
         int lastSentenceEnd = Math.max(
-            overlap.lastIndexOf('。'),
-            Math.max(overlap.lastIndexOf('？'), overlap.lastIndexOf('！'))
+                overlap.lastIndexOf('。'),
+                Math.max(overlap.lastIndexOf('？'), overlap.lastIndexOf('！'))
         );
         //"这是第一句。这是第二句。这是第三句"这样截取的是"这是第三句"
         //如果是"这是第一句。这是第二句。这是第三句。"将会截取为""空串 导致语义丢失。

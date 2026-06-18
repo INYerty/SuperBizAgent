@@ -1,8 +1,5 @@
 package org.example.constant;
 
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.beans.factory.annotation.Autowired;
-
 public class MilvusConstants2 {
 
     /**

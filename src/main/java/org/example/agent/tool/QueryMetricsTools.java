@@ -24,24 +24,24 @@ import java.util.*;
 @Component
 public class QueryMetricsTools {
 
-    private static final Logger logger = LoggerFactory.getLogger(QueryMetricsTools.class);
-    
-    /** 工具名常量，用于动态构建提示词 */
+    /**
+     * 工具名常量，用于动态构建提示词
+     */
     public static final String TOOL_QUERY_PROMETHEUS_ALERTS = "queryPrometheusAlerts";
-    
+    private static final Logger logger = LoggerFactory.getLogger(QueryMetricsTools.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
-    
+
     @Value("${prometheus.base-url}")
     private String prometheusBaseUrl;
-    
+
     @Value("${prometheus.timeout:10}")
     private int timeout;
-    
+
     @Value("${prometheus.mock-enabled:true}")
     private boolean mockEnabled;
-    
+
     private OkHttpClient httpClient;
-    
+
     @jakarta.annotation.PostConstruct
     public void init() {
         this.httpClient = new OkHttpClient.Builder()
@@ -50,7 +50,7 @@ public class QueryMetricsTools {
                 .build();
         logger.info("✅ QueryMetricsTools 初始化成功, Prometheus URL: {}, Mock模式: {}", prometheusBaseUrl, mockEnabled);
     }
-    
+
     /**
      * 查询 Prometheus 活动告警
      * 该工具从 Prometheus 告警系统检索所有当前活动/触发的告警，包括标签、注释、状态和值
@@ -60,10 +60,10 @@ public class QueryMetricsTools {
             "Use this tool when you need to check what alerts are currently firing, investigate alert conditions, or monitor alert status.")
     public String queryPrometheusAlerts() {
         logger.info("开始查询 Prometheus 活动告警, Mock模式: {}", mockEnabled);
-        
+
         try {
             List<SimplifiedAlert> simplifiedAlerts;
-            
+
             if (mockEnabled) {
                 // Mock 模式：返回与文档关联的模拟告警数据
                 simplifiedAlerts = buildMockAlerts();
@@ -71,54 +71,54 @@ public class QueryMetricsTools {
             } else {
                 // 真实模式：调用 Prometheus Alerts API
                 PrometheusAlertsResult result = fetchPrometheusAlerts();
-                
+
                 if (!"success".equals(result.getStatus())) {
                     return buildErrorResponse("Prometheus API 返回非成功状态: " + result.getStatus(), result.getError());
                 }
-                
+
                 // 转换为简化格式，对于相同的 alertname，只保留第一个
                 Set<String> seenAlertNames = new HashSet<>();
                 simplifiedAlerts = new ArrayList<>();
-                
+
                 for (PrometheusAlert alert : result.getData().getAlerts()) {
                     String alertName = alert.getLabels().get("alertname");
-                    
+
                     // 如果这个 alertname 已经存在，跳过
                     if (seenAlertNames.contains(alertName)) {
                         continue;
                     }
-                    
+
                     // 标记为已见过
                     seenAlertNames.add(alertName);
-                    
+
                     SimplifiedAlert simplified = new SimplifiedAlert();
                     simplified.setAlertName(alertName);
                     simplified.setDescription(alert.getAnnotations().getOrDefault("description", ""));
                     simplified.setState(alert.getState());
                     simplified.setActiveAt(alert.getActiveAt());
                     simplified.setDuration(calculateDuration(alert.getActiveAt()));
-                    
+
                     simplifiedAlerts.add(simplified);
                 }
             }
-            
+
             // 构建成功响应
             PrometheusAlertsOutput output = new PrometheusAlertsOutput();
             output.setSuccess(true);
             output.setAlerts(simplifiedAlerts);
             output.setMessage(String.format("成功检索到 %d 个活动告警", simplifiedAlerts.size()));
-            
+
             String jsonResult = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(output);
             logger.info("Prometheus 告警查询完成: 找到 {} 个告警", simplifiedAlerts.size());
-            
+
             return jsonResult;
-            
+
         } catch (Exception e) {
             logger.error("查询 Prometheus 告警失败", e);
             return buildErrorResponse("查询失败", e.getMessage());
         }
     }
-    
+
     /**
      * 构建 Mock 告警数据
      * 与 aiops-docs 文档中的告警类型对应：
@@ -131,7 +131,7 @@ public class QueryMetricsTools {
     private List<SimplifiedAlert> buildMockAlerts() {
         List<SimplifiedAlert> alerts = new ArrayList<>();
         Instant now = Instant.now();
-        
+
         // 告警1: CPU使用率过高 - 持续约25分钟
         SimplifiedAlert cpuAlert = new SimplifiedAlert();
         cpuAlert.setAlertName("HighCPUUsage");
@@ -142,7 +142,7 @@ public class QueryMetricsTools {
         cpuAlert.setActiveAt(cpuActiveAt.toString());
         cpuAlert.setDuration(calculateDuration(cpuActiveAt.toString()));
         alerts.add(cpuAlert);
-        
+
         // 告警2: 内存使用率过高 - 持续约15分钟
         SimplifiedAlert memoryAlert = new SimplifiedAlert();
         memoryAlert.setAlertName("HighMemoryUsage");
@@ -154,7 +154,7 @@ public class QueryMetricsTools {
         memoryAlert.setActiveAt(memoryActiveAt.toString());
         memoryAlert.setDuration(calculateDuration(memoryActiveAt.toString()));
         alerts.add(memoryAlert);
-        
+
         // 告警3: 响应时间过长 - 持续约10分钟
         SimplifiedAlert slowAlert = new SimplifiedAlert();
         slowAlert.setAlertName("SlowResponse");
@@ -166,32 +166,32 @@ public class QueryMetricsTools {
         slowAlert.setActiveAt(slowActiveAt.toString());
         slowAlert.setDuration(calculateDuration(slowActiveAt.toString()));
         alerts.add(slowAlert);
-        
+
         return alerts;
     }
-    
+
     /**
      * 从 Prometheus API 获取告警数据
      */
     private PrometheusAlertsResult fetchPrometheusAlerts() throws Exception {
         String apiUrl = prometheusBaseUrl + "/api/v1/alerts";
         logger.debug("请求 Prometheus API: {}", apiUrl);
-        
+
         Request request = new Request.Builder()
                 .url(apiUrl)
                 .get()
                 .build();
-        
+
         try (Response response = httpClient.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 throw new RuntimeException("HTTP 请求失败: " + response.code());
             }
-            
+
             String responseBody = response.body().string();
             return objectMapper.readValue(responseBody, PrometheusAlertsResult.class);
         }
     }
-    
+
     /**
      * 计算从 activeAt 到现在的持续时间
      */
@@ -199,11 +199,11 @@ public class QueryMetricsTools {
         try {
             Instant activeAt = Instant.parse(activeAtStr);
             Duration duration = Duration.between(activeAt, Instant.now());
-            
+
             long hours = duration.toHours();
             long minutes = duration.toMinutes() % 60;
             long seconds = duration.getSeconds() % 60;
-            
+
             if (hours > 0) {
                 return String.format("%dh%dm%ds", hours, minutes, seconds);
             } else if (minutes > 0) {
@@ -216,7 +216,7 @@ public class QueryMetricsTools {
             return "unknown";
         }
     }
-    
+
     /**
      * 构建错误响应
      */
@@ -231,9 +231,9 @@ public class QueryMetricsTools {
             return String.format("{\"success\":false,\"message\":\"%s\",\"error\":\"%s\"}", message, error);
         }
     }
-    
+
     // ==================== 数据模型 ====================
-    
+
     /**
      * Prometheus 告警信息结构
      */
@@ -245,7 +245,7 @@ public class QueryMetricsTools {
         private String activeAt;
         private String value;
     }
-    
+
     /**
      * Prometheus 告警查询结果
      */
@@ -256,12 +256,12 @@ public class QueryMetricsTools {
         private String error;
         private String errorType;
     }
-    
+
     @Data
     public static class AlertsData {
         private List<PrometheusAlert> alerts = new ArrayList<>();
     }
-    
+
     /**
      * 简化的告警信息
      */
@@ -269,20 +269,20 @@ public class QueryMetricsTools {
     public static class SimplifiedAlert {
         @JsonProperty("alert_name")
         private String alertName;
-        
+
         @JsonProperty("description")
         private String description;
-        
+
         @JsonProperty("state")
         private String state;
-        
+
         @JsonProperty("active_at")
         private String activeAt;
-        
+
         @JsonProperty("duration")
         private String duration;
     }
-    
+
     /**
      * 告警查询输出
      */
@@ -290,13 +290,13 @@ public class QueryMetricsTools {
     public static class PrometheusAlertsOutput {
         @JsonProperty("success")
         private boolean success;
-        
+
         @JsonProperty("alerts")
         private List<SimplifiedAlert> alerts;
-        
+
         @JsonProperty("message")
         private String message;
-        
+
         @JsonProperty("error")
         private String error;
     }

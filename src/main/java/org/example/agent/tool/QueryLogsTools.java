@@ -27,26 +27,38 @@ import java.util.Map;
 @Component
 public class QueryLogsTools {
 
-    private static final Logger logger = LoggerFactory.getLogger(QueryLogsTools.class);
-    
-    /** 工具名常量，用于动态构建提示词 */
+    /**
+     * 工具名常量，用于动态构建提示词
+     */
     public static final String TOOL_QUERY_LOGS = "queryLogs";
     public static final String TOOL_GET_AVAILABLE_LOG_TOPICS = "getAvailableLogTopics";
-    
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
-    @Value("${cls.mock-enabled:false}")
-    private boolean mockEnabled;
-    
+    private static final Logger logger = LoggerFactory.getLogger(QueryLogsTools.class);
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter
             .ofPattern("yyyy-MM-dd HH:mm:ss")
             .withZone(ZoneId.of("Asia/Shanghai"));
-    
+    /**
+     * 查询日志
+     * 从云日志服务查询指定条件的日志
+     *
+     * @param region 地域，如 ap-guangzhou
+     * @param logTopic 日志主题，如 system-metrics, application-logs
+     * @param query 查询条件，如 level:ERROR OR cpu_usage:>80
+     * @param limit 返回的日志条数，默认20条
+     */
+    // 有效地域列表
+    private static final List<String> VALID_REGIONS = List.of(
+            "ap-guangzhou", "ap-shanghai", "ap-beijing", "ap-chengdu"
+    );
+    private static final String DEFAULT_REGION = "ap-guangzhou";
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Value("${cls.mock-enabled:false}")
+    private boolean mockEnabled;
+
     @jakarta.annotation.PostConstruct
     public void init() {
         logger.info("✅ QueryLogsTools 初始化成功, Mock模式: {}", mockEnabled);
     }
-    
+
     /**
      * 获取可用的日志主题列表
      * 用于查询前先了解有哪些日志主题可供查询
@@ -56,10 +68,10 @@ public class QueryLogsTools {
             "Returns a list of log topics with their names, descriptions, and example queries.")
     public String getAvailableLogTopics() {
         logger.info("获取可用的日志主题列表");
-        
+
         try {
             List<LogTopicInfo> topics = new ArrayList<>();
-            
+
             // 系统指标日志
             LogTopicInfo systemMetrics = new LogTopicInfo();
             systemMetrics.setTopicName("system-metrics");
@@ -72,7 +84,7 @@ public class QueryLogsTools {
             ));
             systemMetrics.setRelatedAlerts(List.of("HighCPUUsage", "HighMemoryUsage", "HighDiskUsage"));
             topics.add(systemMetrics);
-            
+
             // 应用日志
             LogTopicInfo applicationLogs = new LogTopicInfo();
             applicationLogs.setTopicName("application-logs");
@@ -87,7 +99,7 @@ public class QueryLogsTools {
             ));
             applicationLogs.setRelatedAlerts(List.of("ServiceUnavailable", "SlowResponse", "HighMemoryUsage"));
             topics.add(applicationLogs);
-            
+
             // 数据库慢查询日志
             LogTopicInfo dbSlowQuery = new LogTopicInfo();
             dbSlowQuery.setTopicName("database-slow-query");
@@ -100,7 +112,7 @@ public class QueryLogsTools {
             ));
             dbSlowQuery.setRelatedAlerts(List.of("SlowResponse", "ServiceUnavailable"));
             topics.add(dbSlowQuery);
-            
+
             // 系统事件日志
             LogTopicInfo systemEvents = new LogTopicInfo();
             systemEvents.setTopicName("system-events");
@@ -113,7 +125,7 @@ public class QueryLogsTools {
             ));
             systemEvents.setRelatedAlerts(List.of("ServiceUnavailable", "HighMemoryUsage"));
             topics.add(systemEvents);
-            
+
             // 构建输出
             LogTopicsOutput output = new LogTopicsOutput();
             output.setSuccess(true);
@@ -122,31 +134,15 @@ public class QueryLogsTools {
             output.setDefaultRegion("ap-guangzhou");
 
             output.setMessage(String.format("共有 %d 个可用的日志主题。建议使用默认地域 'ap-guangzhou' 或省略 region 参数", topics.size()));
-            
+
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(output);
-            
+
         } catch (Exception e) {
             logger.error("获取日志主题列表失败", e);
             return "{\"success\":false,\"message\":\"获取日志主题列表失败: " + e.getMessage() + "\"}";
         }
     }
-    
-    /**
-     * 查询日志
-     * 从云日志服务查询指定条件的日志
-     * 
-     * @param region 地域，如 ap-guangzhou
-     * @param logTopic 日志主题，如 system-metrics, application-logs
-     * @param query 查询条件，如 level:ERROR OR cpu_usage:>80
-     * @param limit 返回的日志条数，默认20条
-     */
-    // 有效地域列表
-    private static final List<String> VALID_REGIONS = List.of(
-            "ap-guangzhou", "ap-shanghai", "ap-beijing", "ap-chengdu"
-    );
 
-    private static final String DEFAULT_REGION = "ap-guangzhou";
-    
     @Tool(description = "Query logs from Cloud Log Service (CLS). " +
             "Use this tool to search application logs, system metrics, and other log data. " +
             "IMPORTANT: Before calling this tool, you should call getAvailableLogTopics to understand what log topics are available. " +
@@ -163,15 +159,15 @@ public class QueryLogsTools {
             @ToolParam(description = "日志主题，如 system-metrics, application-logs, database-slow-query, system-events，也支持 CLS TopicId") String logTopic,
             @ToolParam(description = "查询条件，支持 Lucene 语法，如 level:ERROR OR cpu_usage:>80；为空时返回该主题近 5 条核心日志") String query,
             @ToolParam(description = "返回日志条数，默认20，最大100") Integer limit) {
-        
+
         int actualLimit = (limit == null || limit <= 0) ? 20 : Math.min(limit, 100);
-        
+
         String safeQuery = query == null ? "" : query;
-        
+
 
         try {
             List<LogEntry> logEntries;
-            
+
             if (mockEnabled) {
                 // Mock 模式：返回与告警关联的模拟日志数据
                 logEntries = buildMockLogs(region, logTopic, safeQuery, actualLimit);
@@ -180,7 +176,7 @@ public class QueryLogsTools {
                 // 真实模式：调用 CLS API（这里预留接口，后续实现）
                 return buildErrorResponse("CLS 真实查询尚未实现，请启用 mock 模式进行测试");
             }
-            
+
             // 构建成功响应
             QueryLogsOutput output = new QueryLogsOutput();
             output.setSuccess(!logEntries.isEmpty());
@@ -190,12 +186,12 @@ public class QueryLogsTools {
             output.setLogs(logEntries);
             output.setTotal(logEntries.size());
             output.setMessage(logEntries.isEmpty() ? "未找到匹配的日志" : String.format("成功查询到 %d 条日志", logEntries.size()));
-            
+
             String jsonResult = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(output);
             logger.info("日志查询完成: 找到 {} 条日志", logEntries.size());
-            
+
             return jsonResult;
-            
+
         } catch (Exception e) {
             logger.error("查询日志失败", e);
             return buildErrorResponse("查询失败: " + e.getMessage());
@@ -204,16 +200,16 @@ public class QueryLogsTools {
 
     /**
      * 构建 Mock 日志数据
-
+     * <p>
      * 根据日志主题和查询条件返回与告警关联的模拟数据
      */
     private List<LogEntry> buildMockLogs(String region, String logTopic, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
         Instant now = Instant.now();
-        
+
         String safeTopic = logTopic == null ? "system-metrics" : logTopic.toLowerCase();
         String normalizedQuery = query == null ? "" : query.toLowerCase();
-        
+
         // 根据日志主题和查询条件生成对应的 mock 数据
         switch (safeTopic) {
 
@@ -232,26 +228,26 @@ public class QueryLogsTools {
             default:
                 logs.addAll(buildGenericLogs(now, normalizedQuery, limit));
         }
-        
+
         if (logs.isEmpty()) {
             logs.addAll(buildGenericLogs(now, normalizedQuery, limit));
         }
-        
+
         // 限制返回条数
 
         if (logs.size() > limit) {
             logs = logs.subList(0, limit);
         }
-        
+
         return logs;
     }
-    
+
     /**
      * 构建系统指标日志（与 CPU、内存、磁盘告警关联）
      */
     private List<LogEntry> buildSystemMetricsLogs(Instant now, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
-        
+
         // CPU 相关日志
         if (query.contains("cpu") || query.contains(">80")) {
 
@@ -273,7 +269,7 @@ public class QueryLogsTools {
                 logs.add(log);
             }
         }
-        
+
         // 内存相关日志
         if (query.contains("memory") || query.contains(">85") || query.contains("oom")) {
 
@@ -283,7 +279,7 @@ public class QueryLogsTools {
                 log.setLevel("WARN");
                 log.setService("order-service");
                 log.setInstance("pod-order-service-5c7d8e9f1-m3n2p");
-                log.setMessage(String.format("内存使用率过高: %.1f%%, JVM堆内存: %.1fGB/4GB, GC次数: %d", 
+                log.setMessage(String.format("内存使用率过高: %.1f%%, JVM堆内存: %.1fGB/4GB, GC次数: %d",
                         91.0 - i * 1.2, 3.8 - i * 0.1, 128 - i * 5));
                 log.setMetrics(Map.of(
                         "memory_usage", String.format("%.1f", 91.0 - i * 1.2),
@@ -294,7 +290,7 @@ public class QueryLogsTools {
                 ));
                 logs.add(log);
             }
-            
+
             // 添加 GC 警告日志
             LogEntry gcLog = new LogEntry();
             gcLog.setTimestamp(FORMATTER.format(now.minus(8, ChronoUnit.MINUTES)));
@@ -310,7 +306,7 @@ public class QueryLogsTools {
             ));
             logs.add(gcLog);
         }
-        
+
         // 磁盘相关日志
         if (query.contains("disk") || query.contains("filesystem")) {
 
@@ -320,7 +316,7 @@ public class QueryLogsTools {
                 log.setLevel("WARN");
                 log.setService("log-collector");
                 log.setInstance("node-worker-01");
-                log.setMessage(String.format("磁盘使用率告警: /data 分区使用率 %.1f%%, 可用空间: %.1fGB", 
+                log.setMessage(String.format("磁盘使用率告警: /data 分区使用率 %.1f%%, 可用空间: %.1fGB",
                         85.0 + i * 2, 15.0 - i * 2));
                 log.setMetrics(Map.of(
                         "disk_usage", String.format("%.1f%%", 85.0 + i * 2),
@@ -332,16 +328,16 @@ public class QueryLogsTools {
                 logs.add(log);
             }
         }
-        
+
         return logs;
     }
-    
+
     /**
      * 构建应用日志（与服务不可用、慢响应告警关联）
      */
     private List<LogEntry> buildApplicationLogs(Instant now, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
-        
+
         // ERROR 级别日志
         if (query.contains("error") || query.contains("fatal") || query.contains("500")) {
 
@@ -360,7 +356,7 @@ public class QueryLogsTools {
                     "waiting_threads", "23"
             ));
             logs.add(dbError);
-            
+
             // OOM 错误
             LogEntry oomError = new LogEntry();
             oomError.setTimestamp(FORMATTER.format(now.minus(12, ChronoUnit.MINUTES)));
@@ -376,7 +372,7 @@ public class QueryLogsTools {
                     "stack_trace", "OrderService.processLargeOrder -> OrderRepository.findByCondition -> HikariPool.getConnection"
             ));
             logs.add(oomError);
-            
+
             // HTTP 500 错误
             for (int i = 0; i < 3; i++) {
                 LogEntry httpError = new LogEntry();
@@ -396,7 +392,7 @@ public class QueryLogsTools {
                 logs.add(httpError);
             }
         }
-        
+
         // 慢响应相关日志
         if (query.contains("response_time") || query.contains("slow") || query.contains(">3000")) {
 
@@ -419,10 +415,10 @@ public class QueryLogsTools {
                 logs.add(slowLog);
             }
         }
-        
+
         // 下游服务依赖相关日志
-        if (query.contains("downstream") || query.contains("redis") || 
-            query.contains("database") || query.contains("mq")) {
+        if (query.contains("downstream") || query.contains("redis") ||
+                query.contains("database") || query.contains("mq")) {
 
             LogEntry redisError = new LogEntry();
             redisError.setTimestamp(FORMATTER.format(now.minus(7, ChronoUnit.MINUTES)));
@@ -437,7 +433,7 @@ public class QueryLogsTools {
                     "retry_count", "3"
             ));
             logs.add(redisError);
-            
+
             LogEntry mqError = new LogEntry();
             mqError.setTimestamp(FORMATTER.format(now.minus(9, ChronoUnit.MINUTES)));
             mqError.setLevel("WARN");
@@ -452,16 +448,16 @@ public class QueryLogsTools {
             ));
             logs.add(mqError);
         }
-        
+
         return logs;
     }
-    
+
     /**
      * 构建数据库慢查询日志（与慢响应告警关联）
      */
     private List<LogEntry> buildDatabaseSlowQueryLogs(Instant now, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
-        
+
         // 慢查询日志
         LogEntry slowQuery1 = new LogEntry();
         slowQuery1.setTimestamp(FORMATTER.format(now.minus(3, ChronoUnit.MINUTES)));
@@ -479,7 +475,7 @@ public class QueryLogsTools {
                 "query_type", "SELECT"
         ));
         logs.add(slowQuery1);
-        
+
         LogEntry slowQuery2 = new LogEntry();
         slowQuery2.setTimestamp(FORMATTER.format(now.minus(6, ChronoUnit.MINUTES)));
         slowQuery2.setLevel("WARN");
@@ -497,7 +493,7 @@ public class QueryLogsTools {
                 "warning", "Full table scan detected"
         ));
         logs.add(slowQuery2);
-        
+
         LogEntry slowQuery3 = new LogEntry();
         slowQuery3.setTimestamp(FORMATTER.format(now.minus(8, ChronoUnit.MINUTES)));
         slowQuery3.setLevel("WARN");
@@ -514,19 +510,19 @@ public class QueryLogsTools {
                 "warning", "High lock contention"
         ));
         logs.add(slowQuery3);
-        
+
         return logs;
     }
-    
+
     /**
      * 构建系统事件日志（与服务不可用告警关联）
      */
     private List<LogEntry> buildSystemEventsLogs(Instant now, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
-        
+
         // 服务重启事件
-        if (query.contains("restart") || query.contains("crash") || 
-            query.contains("oom_kill")) {
+        if (query.contains("restart") || query.contains("crash") ||
+                query.contains("oom_kill")) {
 
             LogEntry restartEvent = new LogEntry();
             restartEvent.setTimestamp(FORMATTER.format(now.minus(15, ChronoUnit.MINUTES)));
@@ -544,7 +540,7 @@ public class QueryLogsTools {
                     "namespace", "production"
             ));
             logs.add(restartEvent);
-            
+
             LogEntry oomKillEvent = new LogEntry();
             oomKillEvent.setTimestamp(FORMATTER.format(now.minus(16, ChronoUnit.MINUTES)));
             oomKillEvent.setLevel("ERROR");
@@ -562,16 +558,16 @@ public class QueryLogsTools {
             ));
             logs.add(oomKillEvent);
         }
-        
+
         return logs;
     }
-    
+
     /**
      * 构建通用日志
      */
     private List<LogEntry> buildGenericLogs(Instant now, String query, int limit) {
         List<LogEntry> logs = new ArrayList<>();
-        
+
         for (int i = 0; i < Math.min(limit, 10); i++) {
             LogEntry log = new LogEntry();
             log.setTimestamp(FORMATTER.format(now.minus(i, ChronoUnit.MINUTES)));
@@ -582,10 +578,10 @@ public class QueryLogsTools {
             log.setMetrics(new HashMap<>());
             logs.add(log);
         }
-        
+
         return logs;
     }
-    
+
     /**
      * 构建错误响应
      */
@@ -599,9 +595,9 @@ public class QueryLogsTools {
             return String.format("{\"success\":false,\"message\":\"%s\"}", message);
         }
     }
-    
+
     // ==================== 数据模型 ====================
-    
+
     /**
      * 日志条目
      */
@@ -609,23 +605,23 @@ public class QueryLogsTools {
     public static class LogEntry {
         @JsonProperty("timestamp")
         private String timestamp;
-        
+
         @JsonProperty("level")
         private String level;
-        
+
         @JsonProperty("service")
         private String service;
-        
+
         @JsonProperty("instance")
         private String instance;
-        
+
         @JsonProperty("message")
         private String message;
-        
+
         @JsonProperty("metrics")
         private Map<String, String> metrics;
     }
-    
+
     /**
      * 日志查询输出
      */
@@ -633,26 +629,26 @@ public class QueryLogsTools {
     public static class QueryLogsOutput {
         @JsonProperty("success")
         private boolean success;
-        
+
         @JsonProperty("region")
         private String region;
-        
+
         @JsonProperty("log_topic")
         private String logTopic;
-        
+
         @JsonProperty("query")
         private String query;
-        
+
         @JsonProperty("logs")
         private List<LogEntry> logs;
-        
+
         @JsonProperty("total")
         private int total;
-        
+
         @JsonProperty("message")
         private String message;
     }
-    
+
     /**
      * 日志主题信息
      */
@@ -660,17 +656,17 @@ public class QueryLogsTools {
     public static class LogTopicInfo {
         @JsonProperty("topic_name")
         private String topicName;
-        
+
         @JsonProperty("description")
         private String description;
-        
+
         @JsonProperty("example_queries")
         private List<String> exampleQueries;
-        
+
         @JsonProperty("related_alerts")
         private List<String> relatedAlerts;
     }
-    
+
     /**
      * 日志主题列表输出
      */
@@ -678,16 +674,16 @@ public class QueryLogsTools {
     public static class LogTopicsOutput {
         @JsonProperty("success")
         private boolean success;
-        
+
         @JsonProperty("topics")
         private List<LogTopicInfo> topics;
-        
+
         @JsonProperty("available_regions")
         private List<String> availableRegions;
-        
+
         @JsonProperty("default_region")
         private String defaultRegion;
-        
+
         @JsonProperty("message")
         private String message;
     }

@@ -1,12 +1,9 @@
 package org.example.service;
 
-import com.google.gson.JsonElement;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.R;
 import io.milvus.param.RpcStatus;
-import io.milvus.param.collection.CollectionSchemaParam;
-import io.milvus.param.collection.FieldType;
 import io.milvus.param.collection.LoadCollectionParam;
 import io.milvus.param.dml.DeleteParam;
 import io.milvus.param.dml.InsertParam;
@@ -50,7 +47,7 @@ public class VectorIndexService {
 
     /**
      * 索引指定目录下的所有文件
-     * 
+     *
      * @param directoryPath 目录路径（可选，默认使用配置的上传目录）
      * @return 索引结果  这里可以优化：定时重建目录下所有文件的索引
      */
@@ -60,12 +57,12 @@ public class VectorIndexService {
 
         try {
             // 使用指定目录或默认上传目录
-            String targetPath = (directoryPath != null && !directoryPath.trim().isEmpty()) 
+            String targetPath = (directoryPath != null && !directoryPath.trim().isEmpty())
                     ? directoryPath : uploadPath;
-                    
+
             Path dirPath = Paths.get(targetPath).normalize();
             File directory = dirPath.toFile();
-            
+
             if (!directory.exists() || !directory.isDirectory()) {
                 throw new IllegalArgumentException("目录不存在或不是有效目录: " + targetPath);
             }
@@ -73,8 +70,8 @@ public class VectorIndexService {
             result.setDirectoryPath(directory.getAbsolutePath());
 
             // 获取所有支持的文件
-            File[] files = directory.listFiles((dir, name) -> 
-                name.endsWith(".txt") || name.endsWith(".md")
+            File[] files = directory.listFiles((dir, name) ->
+                    name.endsWith(".txt") || name.endsWith(".md")
             );
 
             if (files == null || files.length == 0) {
@@ -104,8 +101,8 @@ public class VectorIndexService {
             result.setSuccess(result.getFailCount() == 0);
             result.setEndTime(LocalDateTime.now());
 
-            logger.info("目录索引完成: 总数={}, 成功={}, 失败={}", 
-                result.getTotalFiles(), result.getSuccessCount(), result.getFailCount());
+            logger.info("目录索引完成: 总数={}, 成功={}, 失败={}",
+                    result.getTotalFiles(), result.getSuccessCount(), result.getFailCount());
 
             return result;
 
@@ -120,14 +117,14 @@ public class VectorIndexService {
 
     /**
      * 索引单个文件
-     * 
+     *
      * @param filePath 文件路径
      * @throws Exception 索引失败时抛出异常
      */
     public void indexSingleFile(String filePath) throws Exception {
         Path path = Paths.get(filePath).normalize();
         File file = path.toFile();
-        
+
         if (!file.exists() || !file.isFile()) {
             throw new IllegalArgumentException("文件不存在: " + filePath);
         }
@@ -148,7 +145,7 @@ public class VectorIndexService {
         // 4. 为每个分片生成向量并插入 Milvus
         for (int i = 0; i < chunks.size(); i++) {
             DocumentChunk chunk = chunks.get(i);
-            
+
             try {
                 // 生成向量
                 List<Float> vector = embeddingService.generateEmbedding(chunk.getContent());
@@ -225,7 +222,7 @@ public class VectorIndexService {
 
                 // 插入到 Milvus
                 insertToMilvus(chunk.getContent(), vector, metadata, chunk.getChunkIndex());
-                
+
                 logger.info("✓ 分片 {}/{} 索引成功", i + 1, chunks.size());
 
             } catch (Exception e) {
@@ -246,17 +243,17 @@ public class VectorIndexService {
             // 将系统路径转换为统一格式
             Path path = Paths.get(filePath).normalize();
             String normalizedPath = path.toString().replace(File.separator, "/");
-            
+
             // 构建删除表达式：metadata["_source"] == "xxx"
             String expr = String.format("metadata[\"_source\"] == \"%s\"", normalizedPath);
-            
+
             logger.info("准备删除旧数据，路径: {}, 表达式: {}", normalizedPath, expr);
 
             // 确保 collection 已加载（删除操作需要集合已加载）
             R<RpcStatus> loadResponse = milvusClient.loadCollection(
-                LoadCollectionParam.newBuilder()
-                    .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
-                    .build()
+                    LoadCollectionParam.newBuilder()
+                            .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                            .build()
             );
 
             // 状态码 65535 表示集合已经加载，这不是错误
@@ -289,11 +286,11 @@ public class VectorIndexService {
      */
     private Map<String, Object> buildMetadata(String filePath, DocumentChunk chunk, int totalChunks) {
         Map<String, Object> metadata = new HashMap<>();
-        
+
         // 标准化路径：使用统一的路径分隔符（正斜杠）用于存储，确保跨平台一致性
         Path path = Paths.get(filePath).normalize();
         String normalizedPath = path.toString().replace(File.separator, "/");
-        
+
         // 文件信息
         Path fileName = path.getFileName();
         String fileNameStr = fileName != null ? fileName.toString() : "";
@@ -302,34 +299,34 @@ public class VectorIndexService {
         if (dotIndex > 0) {
             extension = fileNameStr.substring(dotIndex);
         }
-        
+
         metadata.put("_source", normalizedPath);
         metadata.put("_extension", extension);
         metadata.put("_file_name", fileNameStr);
-        
+
         // 分片信息
         metadata.put("chunkIndex", chunk.getChunkIndex());
         metadata.put("totalChunks", totalChunks);
-        
+
         // 标题信息
         if (chunk.getTitle() != null && !chunk.getTitle().isEmpty()) {
             metadata.put("title", chunk.getTitle());
         }
-        
+
         return metadata;
     }
 
     /**
      * 插入向量到 Milvus
      */
-    private void insertToMilvus(String content, List<Float> vector, 
+    private void insertToMilvus(String content, List<Float> vector,
                                 Map<String, Object> metadata, int chunkIndex) throws Exception {
         try {
             // 确保 collection 已加载
             R<RpcStatus> loadResponse = milvusClient.loadCollection(
-                LoadCollectionParam.newBuilder()
-                    .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
-                    .build()
+                    LoadCollectionParam.newBuilder()
+                            .withCollectionName(MilvusConstants.MILVUS_COLLECTION_NAME)
+                            .build()
             );
 
             if (loadResponse.getStatus() != 0 && loadResponse.getStatus() != 65535) {
@@ -349,10 +346,10 @@ public class VectorIndexService {
 
             // content 字段
             fields.add(new InsertParam.Field("content", Collections.singletonList(content)));
-            
+
             // vector 字段
             fields.add(new InsertParam.Field(MilvusConstants.VECTOR_FIELD_NAME, Collections.singletonList(vector)));
-            
+
             // metadata 字段（JSON 对象）
             com.google.gson.Gson gson = new com.google.gson.Gson();
             com.google.gson.JsonObject metadataJson = gson.toJsonTree(metadata).getAsJsonObject();

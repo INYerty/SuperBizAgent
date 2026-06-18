@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -117,7 +117,7 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -125,7 +125,7 @@
             <version>1.18.30</version>
             <scope>provided</scope>
         </dependency>
-        
+
         <!-- JSON Schema Generator - Spring AI 工具需要 -->
         <dependency>
             <groupId>com.github.victools</groupId>
@@ -137,7 +137,7 @@
             <artifactId>jsonschema-module-jackson</artifactId>
             <version>4.36.0</version>
         </dependency>
-        
+
         <!-- Spring AI MCP Client - 使用 WebFlux 版本 -->
         <!-- 注意：spring-ai-starter-mcp-client-webflux 已经包含了 mcp-annotations，无需单独引入 -->
         <dependency>
@@ -156,7 +156,7 @@
                     <mainClass>org.example.Main</mainClass>
                 </configuration>
             </plugin>
-            
+
             <!-- Maven 编译器插件，配置 Lombok 注解处理器 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

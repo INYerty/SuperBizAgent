@@ -43,8 +43,8 @@ public class AiOpsService {
     /**
      * 执行 AI Ops 告警分析流程
      *
-     * @param chatModel      大模型实例
-     * @param toolCallbacks  工具回调数组
+     * @param chatModel     大模型实例
+     * @param toolCallbacks 工具回调数组
      * @return 分析结果状态
      * @throws GraphRunnerException 如果 Agent 执行失败
      */
@@ -245,8 +245,8 @@ public class AiOpsService {
                 - 调用相应的工具并收集结果，如工具返回错误或空数据，需要将失败原因、请求参数一并记录，并停止进一步调用该工具（同一工具失败达到 3 次时应直接返回 FAILED）。
                 - 将日志、指标、文档等证据整理成结构化摘要，标注对应的告警名称或资源，方便 Planner 填充"告警根因分析 / 处理方案执行"章节。
                 - 以 JSON 形式返回执行状态、证据以及给 Planner 的建议，写入 executor_feedback，严禁编造未实际查询到的内容。
-
-
+                
+                
                 输出示例：
                 {
                   "status": "SUCCESS",
@@ -270,9 +270,9 @@ public class AiOpsService {
                    告警分析报告\n---\n# 告警处理详情\n## 活跃告警清单\n## 告警根因分析N\n## 处理方案执行N\n## 结论。
                 5. 若步骤涉及腾讯云日志/主题工具，请确保使用连字符区域 ID（ap-guangzhou 等），或省略 region 以采用默认值。
                 6. 如果发现 Planner/Executor 在同一方向连续 3 次调用工具仍失败或没有数据，必须终止流程，直接输出"任务无法完成"的报告，明确告知失败原因，严禁凭空编造结果。
-
+                
                 只允许在 planner_agent、executor_agent 与 FINISH 之间做出选择。
-
+                
                 """;
     }
 }

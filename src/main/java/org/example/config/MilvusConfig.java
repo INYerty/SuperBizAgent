@@ -1,14 +1,13 @@
 package org.example.config;
 
 import io.milvus.client.MilvusServiceClient;
+import jakarta.annotation.PreDestroy;
 import org.example.client.MilvusClientFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
-import jakarta.annotation.PreDestroy;
 
 /**
  * Milvus 配置类
@@ -26,7 +25,7 @@ public class MilvusConfig {
 
     /**
      * 创建 MilvusServiceClient Bean
-     * 
+     *
      * @return MilvusServiceClient 实例
      */
     @Bean

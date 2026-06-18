@@ -24,13 +24,13 @@ public class WebConfig implements WebMvcConfigurer {
         StringHttpMessageConverter stringConverter = new StringHttpMessageConverter(StandardCharsets.UTF_8);
         stringConverter.setWriteAcceptCharset(false); // 不设置 Accept-Charset
         converters.add(0, stringConverter);
-        
+
         // 添加 Jackson JSON 转换器，确保 UTF-8 编码
         MappingJackson2HttpMessageConverter jsonConverter = new MappingJackson2HttpMessageConverter();
         jsonConverter.setDefaultCharset(StandardCharsets.UTF_8);
         converters.add(1, jsonConverter);
     }
-    
+
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();
